@@ -21,8 +21,13 @@ st.markdown(
 )
 
 # --- الصورة والنص الترحيبي ---
-logo_path = os.path.join("images", "logo.png")
-logo = Image.open(logo_path)
+logo_path = "logo.png"
+
+if not os.path.exists(logo_path):
+    st.error("الصورة logo.png غير موجودة!")
+else:
+    logo = Image.open(logo_path)
+    st.image(logo)
 
 st.markdown(
     """
@@ -62,5 +67,6 @@ for sender, msg in reversed(st.session_state["chat_history"]):
         st.markdown(f'<div class="user_msg"><b>{sender}:</b> {msg}</div>', unsafe_allow_html=True)
 
 # streamlit run اااا.py
+
 
 
