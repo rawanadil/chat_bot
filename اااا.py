@@ -21,7 +21,7 @@ st.markdown(
 )
 
 # --- الصورة والنص الترحيبي ---
-logo = Image.open(r"C:\Users\dell\PycharmProjects\pythonProject\.venv\logo.png")
+logo = Image.open("images/logo.png")
 st.image(logo, width=120)
 
 st.markdown(
@@ -60,4 +60,5 @@ for sender, msg in reversed(st.session_state["chat_history"]):
         st.markdown(f'<div class="bot_msg"><b>{sender}:</b> {msg}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="user_msg"><b>{sender}:</b> {msg}</div>', unsafe_allow_html=True)
+
 # streamlit run اااا.py
