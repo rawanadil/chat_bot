@@ -1,7 +1,7 @@
 import streamlit as st
 from PIL import Image
 from boot2 import chatbot_response
-
+import os
 st.set_page_config(
     page_title="Chatbot كلية الهندسة",
     page_icon="🧠",
@@ -21,8 +21,8 @@ st.markdown(
 )
 
 # --- الصورة والنص الترحيبي ---
-logo = Image.open("images/logo.png")
-st.image(logo, width=120)
+logo_path = os.path.join("images", "logo.png")
+logo = Image.open(logo_path))
 
 st.markdown(
     """
@@ -62,3 +62,4 @@ for sender, msg in reversed(st.session_state["chat_history"]):
         st.markdown(f'<div class="user_msg"><b>{sender}:</b> {msg}</div>', unsafe_allow_html=True)
 
 # streamlit run اااا.py
+
