@@ -45,28 +45,50 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- المحادثة ---
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
+# --- قائمة اقتراحات الأسئلة ---
+suggestions = [
+    "عرف قسم الذكاء الاصطناعي",
+    "شكد معدل الأمن السيبراني",
+    "شكد قسط الحوسبة",
+    " شكد مدة الدراسة التصميم ",
+    "شنو المواد المهمة للحوسبة",
+    "اختار لي القسم المناسب",
+    "شنو الفرق بين الذكاء و الامن ",
+    "شنو الفرق بين التصميم و العمارة",
+"كلية الهندسة شنو بيها أقسام؟",
+    "مدة الدراسه في قسم الذكاء",
+]
 
-# --- نموذج الإدخال مع زر إرسال ---
+
+# --- نموذج الإدخال مع اقتراحات ---
 with st.form(key="chat_form", clear_on_submit=True):
-    user_msg = st.text_input("أنت ")
+    user_msg = st.selectbox(
+        "أنتِ:",
+        options=[""] + suggestions,
+        index=0
+    )
+    custom_msg = st.text_input("أو اكتب سؤالك بنفسك:")
     submit_button = st.form_submit_button("إرسال")
 
-if submit_button and user_msg:
-    reply = chatbot_response(user_msg)
-    st.session_state["chat_history"].append(("أنت", user_msg))
-    st.session_state["chat_history"].append(("🤖", reply))
+# --- تحديد الرسالة النهائية ---
+final_msg = custom_msg if custom_msg.strip() else user_msg
 
-# --- عرض المحادثة (آخر رسالة فوق) ---
-for sender, msg in reversed(st.session_state["chat_history"]):
-    if sender == "🤖":
-        st.markdown(f'<div class="bot_msg"><b>{sender}:</b> {msg}</div>', unsafe_allow_html=True)
+# --- المعالجة والتخزين ---
+if submit_button and final_msg:
+    reply = chatbot_response(final_msg)
+    st.session_state.chat_history.append(("أنت", final_msg))
+    st.session_state.chat_history.append(("🤖", reply))
+
+# --- عرض المحادثة ---
+st.markdown("---")
+for sender, msg in st.session_state.chat_history:
+    if sender == "أنت":
+        st.markdown(f"<div class='user_msg'><b>{sender}:</b> {msg}</div>", unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="user_msg"><b>{sender}:</b> {msg}</div>', unsafe_allow_html=True)
+        st.markdown(f"<div class='bot_msg'><b>{sender}:</b> {msg}</div>", unsafe_allow_html=True)
 
-# streamlit run اااا.py
+
+
 
 
 
