@@ -26,8 +26,13 @@ st.markdown(
 
 # --- الصورة والنص الترحيبي ---
 
-logo = Image.open(r"C:\Users\dell\PycharmProjects\pythonProject\.venv\logo.png")
-st.image(logo, width=120)
+logo_path = "logo.png"
+
+if not os.path.exists(logo_path):
+    st.error("الصورة logo.png غير موجودة!")
+else:
+    logo = Image.open(logo_path)
+    st.image(logo)
 st.markdown(
     """
     <div style="text-align:center;">
@@ -98,3 +103,4 @@ for sender, msg in reversed(st.session_state.chat_history):
 
 
 #  streamlit run اااا.py
+
