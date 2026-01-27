@@ -1,6 +1,7 @@
 import streamlit as st
 from PIL import Image
 from boot2 import chatbot_response
+import os
 
 st.set_page_config(
     page_title="Chatbot كلية الهندسة",
@@ -103,4 +104,5 @@ for sender, msg in reversed(st.session_state.chat_history):
 
 
 #  streamlit run اااا.py
+
 
