@@ -9,8 +9,11 @@ import random
 import os
 from nltk.stem.isri import ISRIStemmer
 
-# تحميل ملفات اللغة المطلوبة
-nltk.download('punkt')
+# تحميل ملفات اللغة المطلوبة (بشكل آمن للسيرفر)
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
 
 
 # ----------------------------
@@ -79,7 +82,7 @@ def get_department_from_text(text):
     text = text.lower()
     for dept, keywords in department_keywords.items():
         for kw in keywords:
-            if kw in text:
+            if kw.lower() in text:
                 return dept
     for dept in df_departments["Department"]:
         if dept.lower() in text:
@@ -94,47 +97,40 @@ def get_department_info(dept_name):
     return None
 
 
-# متغيرات الحالة (State Variables)
-smart_mode = False
-user_profile = {}
-last_suggested_question = None
-active_department = None
-
-
-def get_random_suggestion(dept_name, df_training):
+def get_random_suggestion(dept_name, df_training, state):
     related = df_training[df_training['Question'].apply(
         lambda x: dept_name.lower().split()[-1] in x.lower() if pd.notna(x) else False
     )]['Question'].tolist()
 
     if related:
         suggested_q = random.choice(related)
-        global last_suggested_question
-        last_suggested_question = suggested_q
+        state["last_suggested_question"] = suggested_q
         return f"\n\n💡 تحب تعرف: {suggested_q}؟ (جاوب بـ نعم أو اي)"
     return ""
 
 
-def chatbot_response(user_input):
-    global smart_mode, user_profile, last_suggested_question, active_department
-
+# ============================
+# ⭐ الدالة المصححة
+# ============================
+def chatbot_response(user_input, state):
     cleaned = clean_text(user_input)
     dept_name = get_department_from_text(user_input)
 
     # 🔹 تحديث القسم الحالي ومسح الاقتراح القديم
     if dept_name:
-        if dept_name != active_department:
-            active_department = dept_name
-            last_suggested_question = None
+        if dept_name != state["active_department"]:
+            state["active_department"] = dept_name
+            state["last_suggested_question"] = None
 
     # إذا وافق المستخدم على السؤال المقترح
-    if last_suggested_question and any(word in cleaned for word in ["نعم", "اي", "أكيد", "طبعا"]):
+    if state["last_suggested_question"] and any(word in cleaned for word in ["نعم", "اي", "أكيد", "طبعا"]):
         match = get_close_matches(
-            clean_text(last_suggested_question),
+            clean_text(state["last_suggested_question"]),
             df_training['Clean_Question'],
             n=1,
             cutoff=0.6
         )
-        last_suggested_question = None
+        state["last_suggested_question"] = None
         if match:
             return df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
         else:
@@ -144,13 +140,13 @@ def chatbot_response(user_input):
     # 🧠 تفعيل الاختيار الذكي
     # ===============================
     if any(word in cleaned for word in [
-        "اختيار ذكي", "اختار لي", "ساعدني اختار", "اختار قسم", "اريد اختار قسم","ساعدني في اختيار القسم"
+        "اختيار ذكي", "اختار لي", "ساعدني اختار", "اختار قسم", "اريد اختار قسم",
         "ساعدني في اختيار القسم", "مساعدة في الاختيار", "شنو القسم المناسب",
         "شنو اختار", "اقترح قسم", "أريد مساعدة في اختيار القسم", "اقترح لي قسم",
         "اختيار قسم", "اختر لي قسم"
     ]):
-        smart_mode = True
-        user_profile = {}
+        state["smart_mode"] = True
+        state["user_profile"] = {}
         return ("خلينا نختار أفضل قسمين لك خطوة خطوة 👇\n"
                 "السؤال الأول:\n"
                 "تحب أكثر:\n"
@@ -164,9 +160,9 @@ def chatbot_response(user_input):
     # ===============================
     # 🧠 مراحل الاختيار الذكي
     # ===============================
-    if smart_mode:
+    if state["smart_mode"]:
         # السؤال الأول: الاهتمامات
-        if "interest" not in user_profile:
+        if "interest" not in state["user_profile"]:
             interests_map = {
                 "1": "programming", "برمجة": "programming",
                 "2": "design", "تصميم": "design", "رسم": "design",
@@ -176,10 +172,10 @@ def chatbot_response(user_input):
             }
             for key, value in interests_map.items():
                 if key in cleaned:
-                    user_profile["interest"] = value
+                    state["user_profile"]["interest"] = value
                     break
 
-            if "interest" not in user_profile:
+            if "interest" not in state["user_profile"]:
                 return "جاوبني: تحب برمجة، تصميم، شبكات، رياضيات، أو عمارة؟"
 
             return ("السؤال الثاني:\n"
@@ -189,11 +185,11 @@ def chatbot_response(user_input):
                     "اكتب 1 أو 2")
 
         # السؤال الثاني: نوع الدراسة
-        elif "study_type" not in user_profile:
+        elif "study_type" not in state["user_profile"]:
             if "1" in cleaned or "عملي" in cleaned:
-                user_profile["study_type"] = "practical"
+                state["user_profile"]["study_type"] = "practical"
             elif "2" in cleaned or "نظري" in cleaned:
-                user_profile["study_type"] = "theoretical"
+                state["user_profile"]["study_type"] = "theoretical"
             else:
                 return "جاوبني: تفضل عملي لو نظري؟"
 
@@ -205,19 +201,19 @@ def chatbot_response(user_input):
                     "اكتب الرقم")
 
         # السؤال الثالث: نوع العمل
-        elif "work_type" not in user_profile:
+        elif "work_type" not in state["user_profile"]:
             if "1" in cleaned:
-                user_profile["work_type"] = "hardware"
+                state["user_profile"]["work_type"] = "hardware"
             elif "2" in cleaned:
-                user_profile["work_type"] = "software"
+                state["user_profile"]["work_type"] = "software"
             elif "3" in cleaned:
-                user_profile["work_type"] = "design"
+                state["user_profile"]["work_type"] = "design"
             else:
                 return "جاوبني: 1 أجهزة، 2 برامج، 3 تصميم؟"
 
-            smart_mode = False
-            interest = user_profile["interest"]
-            work = user_profile["work_type"]
+            state["smart_mode"] = False
+            interest = state["user_profile"]["interest"]
+            work = state["user_profile"]["work_type"]
             recommendations = []
 
             if interest == "programming":
@@ -234,24 +230,13 @@ def chatbot_response(user_input):
             elif interest == "architecture":
                 recommendations = ["هندسة العمارة", "هندسة التصميم الرقمي"]
 
-            user_profile["recommended"] = recommendations
+            state["user_profile"]["recommended"] = recommendations
             return ("أفضل قسمين لك هما 🎓:\n" + " و ".join(recommendations))
-
-        elif "asked_questions" not in user_profile:
-            if "نعم" in cleaned:
-                user_profile["asked_questions"] = True
-                return "تقدر تسألني أي سؤال عن الأقسام المختارة وسأجاوبك بالتفصيل 📝"
-            elif "لا" in cleaned:
-                user_profile["asked_questions"] = False
-                return "تمام! إذا حبيت لاحقًا تعرف أكثر عن الأقسام، أنا موجودة 🙂"
-            else:
-                return " هل تريد تسأل عن الأقسام؟"
 
     # ===============================
     # ❓ الأسئلة العادية
     # ===============================
 
-    # --- القسط ---
     if any(word in cleaned for word in ["قسط ", "مبلغ", "مال", "فلوس"]):
         if not dept_name:
             return "رجاءً حدّد القسم حتى أحسب لك القسط."
@@ -260,115 +245,34 @@ def chatbot_response(user_input):
             return "ما لقيت معلومات عن هذا القسم."
 
         gpa_match = re.search(r'\d+', cleaned)
+        suggestion = get_random_suggestion(dept_name, df_training, state)
+
         if gpa_match:
             gpa = int(gpa_match.group())
             if gpa >= 85:
-                suggestion = get_random_suggestion(dept_name, df_training)
                 return f"القسط في {dept_name} هو {info['Fee_Above_85']} 💵{suggestion}"
             else:
-                suggestion = get_random_suggestion(dept_name, df_training)
                 return f"القسط في {dept_name} هو {info['Fee_Below_85']} 💵{suggestion}"
         else:
-            suggestion = get_random_suggestion(dept_name, df_training)
             return (f"القسط في {dept_name} حسب بيانات الجامعة:\n"
                     f"إذا معدلك 85 أو أكثر: {info['Fee_Above_85']}\n"
                     f"إذا معدلك أقل من 85: {info['Fee_Below_85']}"
                     f"{suggestion}")
 
-    # --- المهارات والمواد ---
     elif any(word in cleaned for word in [
         "مهارات", "مواد", "مقررات", "دورات", "المواد الدراسية",
-        "المهارات المطلوبة", "الكورسات", "المقررات الدراسية",
-        "المواد الأساسية", "المواد الاختيارية", "البرامج الدراسية",
-        "الدورات التدريبية"
+        "المهارات المطلوبة", "الكورسات", "المقررات الدراسية"
     ]):
         if dept_name:
             info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training)
-            return (f"{dept_name}:\nالمهارات والمواد:\n{info['Key_Courses']}" f"{suggestion}")
+            suggestion = get_random_suggestion(dept_name, df_training, state)
+            return (f"{dept_name}:\nالمهارات والمواد:\n{info['Key_Courses']}{suggestion}")
         else:
             return "رجاءً حدّد القسم حتى أعطيك المهارات والمواد."
 
-    # --- مدة الدراسة ---
-    elif any(word in cleaned for word in
-             ["فتره", "مدة", "مده", "سنه", "سنة", "فترة", "مدة الدراسة", "عدد السنوات", "كم سنة", "كم مدتها"]):
-        if dept_name:
-            info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training)
-            return (f"{dept_name}:\nمدة الدراسة: {info['Study_Duration_Years']}" f"{suggestion}")
-        else:
-            return "رجاءً حدّد القسم حتى أعطيك مدة الدراسة."
-
-    # --- الحد الأدنى للمعدل ---
-    elif any(word in cleaned for word in ["معدل", "الحد الأدنى", "اقل معدل"]):
-        if dept_name:
-            info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training)
-            return (f"الحد الأدنى لمعدل {dept_name} هو {info['Min_GPA']}" f"{suggestion}")
-        else:
-            return "رجاءً حدّد القسم حتى أعطيك الحد الأدنى للمعدل."
-
-    # --- تعريف القسم ---
-    elif dept_name and any(word in cleaned for word in [
-        "عرف", "تعريف", "شنوهو", "شنو", "معلومات", "انطيني", "اعرف","شنو هو"
-        "شرح", "نبذة", "عن القسم", "ماذا يدرس", "الدور", "أعطني معلومات",
-        "شرح القسم"
-    ]):
-        info = get_department_info(dept_name)
-        if info is None:
-            return "ما لقيت معلومات عن هذا القسم."
-        suggestion = get_random_suggestion(dept_name, df_training)
-        return (
-            f"📌 قسم {dept_name}:\n\n"
-            f"🔹 نبذة عن القسم:\n{info['Department_Definition']}\n\n"
-            f"🔹 دور الطالب في هذا القسم:\n{info['Student_Role']}\n\n"
-            f"🔹 أمثلة بسيطة على شغله:\n{info['Simple_Example']}\n\n"
-            f"📚 هذا القسم مناسب إذا تحب هذا نوع من العمل وتريد تتخصص بيه مستقبلاً."
-            f"{suggestion}"
-        )
-
-    # --- افتراضي ---
     else:
-        # 1️⃣ محاولة إيجاد أقرب سؤال في dataset
         match = get_close_matches(cleaned, df_training['Clean_Question'], n=1, cutoff=0.5)
         if match:
-            answer = df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
-            return answer
+            return df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
 
-        # 2️⃣ إذا ذكر اسم قسم في السؤال، اعطي تعريف القسم ومعلوماته
-        elif dept_name:
-            info = get_department_info(dept_name)
-            return (
-                f"{dept_name}:\n"
-                f"{info['Department_Definition']}\n"
-                f"مدة الدراسة: {info['Study_Duration_Years']} سنة\n"
-                f"المهارات والمواد: {info['Key_Courses']}\n"
-                f"الهوايات المناسبة: {info['Suitable_Hobbies']}\n"
-                f"الحد الأدنى للمعدل: {info['Min_GPA']}\n"
-                f"القسط حسب المعدل: إذا >=85: {info['Fee_Above_85']}, إذا <85: {info['Fee_Below_85']}"
-            )
-        else:
-            # أ: البحث عن كلمات مفتاحية أولاً
-            keywords = {
-                "برمج": "الأقسام التي تهتم بالبرمجة هي الذكاء الاصطناعي، الحوسبة المتنقلة، والأمن السيبراني.",
-                "رسم": "الأقسام التي تحتاج مهارة الرسم هي هندسة العمارة والتصميم الرقمي.",
-                "تصميم": "التصميم موجود في قسم العمارة (بناء) وفي قسم التصميم الرقمي (واجهات)."
-            }
-            for key in keywords:
-                if key in cleaned:
-                    return keywords[key]
-
-            # ب: إذا لم يجد كلمة، يبحث عن أقرب سؤال (Fuzzy Match)
-            match = get_close_matches(cleaned, df_training['Clean_Question'], n=1, cutoff=0.6)
-            if match:
-                return df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
-
-            # ج: إذا ذكر اسم القسم فقط
-            if dept_name:
-                info = get_department_info(dept_name)
-                return (f"معلومات قسم {dept_name}:\n"
-                        f"التعريف: {info['Department_Definition']}\n"
-                        f"المعدل: {info['Min_GPA']}")
-
-            # د: الخيار الأخير (Fallback)
-            return "ما فهمت قصدك تماماً، تكدر تسألني عن مهارات قسم معين أو القسط أو الفرق بين الأقسام."
+        return "ما فهمت قصدك تماماً، تكدر تسألني عن مهارات قسم معين أو القسط أو الفرق بين الأقسام."
