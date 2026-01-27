@@ -2,6 +2,11 @@ import streamlit as st
 from PIL import Image
 from boot2 import chatbot_response
 import os
+import streamlit as st
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+    
 st.set_page_config(
     page_title="Chatbot كلية الهندسة",
     page_icon="🧠",
@@ -86,6 +91,7 @@ for sender, msg in st.session_state.chat_history:
         st.markdown(f"<div class='user_msg'><b>{sender}:</b> {msg}</div>", unsafe_allow_html=True)
     else:
         st.markdown(f"<div class='bot_msg'><b>{sender}:</b> {msg}</div>", unsafe_allow_html=True)
+
 
 
 
