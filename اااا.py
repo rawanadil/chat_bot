@@ -1,17 +1,16 @@
 import streamlit as st
 from PIL import Image
 from boot2 import chatbot_response
-import os
-import streamlit as st
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-    
 st.set_page_config(
     page_title="Chatbot كلية الهندسة",
     page_icon="🧠",
     layout="wide"
 )
+
+# ✅ تهيئة chat_history لمنع الخطأ
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
 
 # --- CSS الخلفية والمربعات الشفافة ---
 st.markdown(
@@ -26,14 +25,9 @@ st.markdown(
 )
 
 # --- الصورة والنص الترحيبي ---
-logo_path = "logo.png"
 
-if not os.path.exists(logo_path):
-    st.error("الصورة logo.png غير موجودة!")
-else:
-    logo = Image.open(logo_path)
-    st.image(logo)
-
+logo = Image.open(r"C:\Users\dell\PycharmProjects\pythonProject\.venv\logo.png")
+st.image(logo, width=120)
 st.markdown(
     """
     <div style="text-align:center;">
@@ -64,29 +58,38 @@ suggestions = [
     "مدة الدراسه في قسم الذكاء",
 ]
 
+# --- نموذج الإدخال مع اقتراحات ---
 
 # --- نموذج الإدخال مع اقتراحات ---
 with st.form(key="chat_form", clear_on_submit=True):
     user_msg = st.selectbox(
-        "أنتِ:",
+        " :اختر سوال ",
         options=[""] + suggestions,
         index=0
     )
-    custom_msg = st.text_input("أو اكتب سؤالك بنفسك:")
+    custom_msg = st.text_input(": اكتب سؤالك او اجب عن الاسئلة")
     submit_button = st.form_submit_button("إرسال")
 
 # --- تحديد الرسالة النهائية ---
 final_msg = custom_msg if custom_msg.strip() else user_msg
+if "bot_state" not in st.session_state:
+    st.session_state["bot_state"] = {
+        "smart_mode": False,
+        "user_profile": {},
+        "last_suggested_question": None,
+        "active_department": None
+    }
 
 # --- المعالجة والتخزين ---
 if submit_button and final_msg:
-    reply = chatbot_response(final_msg)
+    reply = chatbot_response(final_msg, st.session_state["bot_state"])
     st.session_state.chat_history.append(("أنت", final_msg))
     st.session_state.chat_history.append(("🤖", reply))
 
 # --- عرض المحادثة ---
 st.markdown("---")
-for sender, msg in st.session_state.chat_history:
+# عكس ترتيب الرسائل
+for sender, msg in reversed(st.session_state.chat_history):
     if sender == "أنت":
         st.markdown(f"<div class='user_msg'><b>{sender}:</b> {msg}</div>", unsafe_allow_html=True)
     else:
@@ -94,7 +97,4 @@ for sender, msg in st.session_state.chat_history:
 
 
 
-
-
-
-
+#  streamlit run اااا.py
