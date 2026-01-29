@@ -233,7 +233,7 @@ def chatbot_response(user_input, state):
             state["user_profile"]["recommended"] = recommendations
             return ("أفضل قسمين لك هما 🎓:\n" + " و ".join(recommendations))
 
-    # ===============================
+   # ===============================
     # --- القسط ---
     if any(word in cleaned for word in ["قسط ", "مبلغ", "مال", "فلوس"]):
         if not dept_name:
@@ -246,13 +246,13 @@ def chatbot_response(user_input, state):
         if gpa_match:
             gpa = int(gpa_match.group())
             if gpa >= 85:
-                suggestion = get_random_suggestion(dept_name, df_training)
+                suggestion = get_random_suggestion(dept_name, df_training, state)
                 return f"القسط في {dept_name} هو {info['Fee_Above_85']} 💵{suggestion}"
             else:
                 suggestion = get_random_suggestion(dept_name, df_training)
                 return f"القسط في {dept_name} هو {info['Fee_Below_85']} 💵{suggestion}"
         else:
-            suggestion = get_random_suggestion(dept_name, df_training)
+            suggestion = get_random_suggestion(dept_name, df_training, state)
             return (f"القسط في {dept_name} حسب بيانات الجامعة:\n"
                     f"إذا معدلك 85 أو أكثر: {info['Fee_Above_85']}\n"
                     f"إذا معدلك أقل من 85: {info['Fee_Below_85']}"
@@ -267,7 +267,7 @@ def chatbot_response(user_input, state):
     ]):
         if dept_name:
             info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training)
+            suggestion = get_random_suggestion(dept_name, df_training, state)
             return (f"{dept_name}:\nالمهارات والمواد:\n{info['Key_Courses']}" f"{suggestion}")
         else:
             return "رجاءً حدّد القسم حتى أعطيك المهارات والمواد."
@@ -277,7 +277,7 @@ def chatbot_response(user_input, state):
              ["فتره", "مدة", "مده", "سنه", "سنة", "فترة", "مدة الدراسة", "عدد السنوات", "كم سنة", "كم مدتها"]):
         if dept_name:
             info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training)
+            suggestion = get_random_suggestion(dept_name, df_training, state)
             return (f"{dept_name}:\nمدة الدراسة: {info['Study_Duration_Years']}" f"{suggestion}")
         else:
             return "رجاءً حدّد القسم حتى أعطيك مدة الدراسة."
@@ -286,7 +286,7 @@ def chatbot_response(user_input, state):
     elif any(word in cleaned for word in ["معدل", "الحد الأدنى", "اقل معدل"]):
         if dept_name:
             info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training)
+            suggestion = get_random_suggestion(dept_name, df_training, state)
             return (f"الحد الأدنى لمعدل {dept_name} هو {info['Min_GPA']}" f"{suggestion}")
         else:
             return "رجاءً حدّد القسم حتى أعطيك الحد الأدنى للمعدل."
