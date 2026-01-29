@@ -234,9 +234,7 @@ def chatbot_response(user_input, state):
             return ("أفضل قسمين لك هما 🎓:\n" + " و ".join(recommendations))
 
     # ===============================
-    # ❓ الأسئلة العادية
-    # ===============================
-
+    # --- القسط ---
     if any(word in cleaned for word in ["قسط ", "مبلغ", "مال", "فلوس"]):
         if not dept_name:
             return "رجاءً حدّد القسم حتى أحسب لك القسط."
@@ -245,34 +243,116 @@ def chatbot_response(user_input, state):
             return "ما لقيت معلومات عن هذا القسم."
 
         gpa_match = re.search(r'\d+', cleaned)
-        suggestion = get_random_suggestion(dept_name, df_training, state)
-
         if gpa_match:
             gpa = int(gpa_match.group())
             if gpa >= 85:
+                suggestion = get_random_suggestion(dept_name, df_training)
                 return f"القسط في {dept_name} هو {info['Fee_Above_85']} 💵{suggestion}"
             else:
+                suggestion = get_random_suggestion(dept_name, df_training)
                 return f"القسط في {dept_name} هو {info['Fee_Below_85']} 💵{suggestion}"
         else:
+            suggestion = get_random_suggestion(dept_name, df_training)
             return (f"القسط في {dept_name} حسب بيانات الجامعة:\n"
                     f"إذا معدلك 85 أو أكثر: {info['Fee_Above_85']}\n"
                     f"إذا معدلك أقل من 85: {info['Fee_Below_85']}"
                     f"{suggestion}")
 
+    # --- المهارات والمواد ---
     elif any(word in cleaned for word in [
         "مهارات", "مواد", "مقررات", "دورات", "المواد الدراسية",
-        "المهارات المطلوبة", "الكورسات", "المقررات الدراسية"
+        "المهارات المطلوبة", "الكورسات", "المقررات الدراسية",
+        "المواد الأساسية", "المواد الاختيارية", "البرامج الدراسية",
+        "الدورات التدريبية"
     ]):
         if dept_name:
             info = get_department_info(dept_name)
-            suggestion = get_random_suggestion(dept_name, df_training, state)
-            return (f"{dept_name}:\nالمهارات والمواد:\n{info['Key_Courses']}{suggestion}")
+            suggestion = get_random_suggestion(dept_name, df_training)
+            return (f"{dept_name}:\nالمهارات والمواد:\n{info['Key_Courses']}" f"{suggestion}")
         else:
             return "رجاءً حدّد القسم حتى أعطيك المهارات والمواد."
 
+    # --- مدة الدراسة ---
+    elif any(word in cleaned for word in
+             ["فتره", "مدة", "مده", "سنه", "سنة", "فترة", "مدة الدراسة", "عدد السنوات", "كم سنة", "كم مدتها"]):
+        if dept_name:
+            info = get_department_info(dept_name)
+            suggestion = get_random_suggestion(dept_name, df_training)
+            return (f"{dept_name}:\nمدة الدراسة: {info['Study_Duration_Years']}" f"{suggestion}")
+        else:
+            return "رجاءً حدّد القسم حتى أعطيك مدة الدراسة."
+
+    # --- الحد الأدنى للمعدل ---
+    elif any(word in cleaned for word in ["معدل", "الحد الأدنى", "اقل معدل"]):
+        if dept_name:
+            info = get_department_info(dept_name)
+            suggestion = get_random_suggestion(dept_name, df_training)
+            return (f"الحد الأدنى لمعدل {dept_name} هو {info['Min_GPA']}" f"{suggestion}")
+        else:
+            return "رجاءً حدّد القسم حتى أعطيك الحد الأدنى للمعدل."
+
+    # --- تعريف القسم ---
+    elif dept_name and any(word in cleaned for word in [
+        "عرف", "تعريف", "شنو هو", "شنو", "معلومات", "انطيني", "اعرف",
+        "شرح", "نبذة", "عن القسم", "ماذا يدرس", "الدور", "أعطني معلومات",
+        "شرح القسم"
+    ]):
+        info = get_department_info(dept_name)
+        if info is None:
+            return "ما لقيت معلومات عن هذا القسم."
+        suggestion = get_random_suggestion(dept_name, df_training, state)
+
+        return (
+            f"📌 قسم {dept_name}:\n\n"
+            f"🔹 نبذة عن القسم:\n{info['Department_Definition']}\n\n"
+            f"🔹 دور الطالب في هذا القسم:\n{info['Student_Role']}\n\n"
+            f"🔹 أمثلة بسيطة على شغله:\n{info['Simple_Example']}\n\n"
+            f"📚 هذا القسم مناسب إذا تحب هذا نوع من العمل وتريد تتخصص بيه مستقبلاً."
+            f"{suggestion}"
+        )
+
+    # --- افتراضي ---
     else:
+        # 1️⃣ محاولة إيجاد أقرب سؤال في dataset
         match = get_close_matches(cleaned, df_training['Clean_Question'], n=1, cutoff=0.5)
         if match:
-            return df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
+            answer = df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
+            return answer
 
-        return "ما فهمت قصدك تماماً، تكدر تسألني عن مهارات قسم معين أو القسط أو الفرق بين الأقسام."
+        # 2️⃣ إذا ذكر اسم قسم في السؤال، اعطي تعريف القسم ومعلوماته
+        elif dept_name:
+            info = get_department_info(dept_name)
+            return (
+                f"{dept_name}:\n"
+                f"{info['Department_Definition']}\n"
+                f"مدة الدراسة: {info['Study_Duration_Years']} سنة\n"
+                f"المهارات والمواد: {info['Key_Courses']}\n"
+                f"الهوايات المناسبة: {info['Suitable_Hobbies']}\n"
+                f"الحد الأدنى للمعدل: {info['Min_GPA']}\n"
+                f"القسط حسب المعدل: إذا >=85: {info['Fee_Above_85']}, إذا <85: {info['Fee_Below_85']}"
+            )
+        else:
+            # أ: البحث عن كلمات مفتاحية أولاً
+            keywords = {
+                "برمج": "الأقسام التي تهتم بالبرمجة هي الذكاء الاصطناعي، الحوسبة المتنقلة، والأمن السيبراني.",
+                "رسم": "الأقسام التي تحتاج مهارة الرسم هي هندسة العمارة والتصميم الرقمي.",
+                "تصميم": "التصميم موجود في قسم العمارة (بناء) وفي قسم التصميم الرقمي (واجهات)."
+            }
+            for key in keywords:
+                if key in cleaned:
+                    return keywords[key]
+
+            # ب: إذا لم يجد كلمة، يبحث عن أقرب سؤال (Fuzzy Match)
+            match = get_close_matches(cleaned, df_training['Clean_Question'], n=1, cutoff=0.6)
+            if match:
+                return df_training[df_training['Clean_Question'] == match[0]]['Answer'].values[0]
+
+            # ج: إذا ذكر اسم القسم فقط
+            if dept_name:
+                info = get_department_info(dept_name)
+                return (f"معلومات قسم {dept_name}:\n"
+                        f"التعريف: {info['Department_Definition']}\n"
+                        f"المعدل: {info['Min_GPA']}")
+
+            # د: الخيار الأخير (Fallback)
+            return "ما فهمت قصدك تماماً، تكدر تسألني عن مهارات قسم معين أو القسط أو الفرق بين الأقسام."
